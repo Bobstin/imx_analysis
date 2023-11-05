@@ -1,0 +1,5 @@
+pandas==1.5.2
+requests==2.31.0
+tqdm==4.64.1
+tortoise-orm==0.20.0
+textual==0.41.0
