@@ -44,18 +44,10 @@ class Searcher:
 
         return response
 
-    async def get_asset_lists_by_metadata(self, asset_name: str, get_transfer_history: bool = True) -> tuple[list[Asset], list[Transfer]]:
+    async def get_asset_list_by_metadata(self, asset_name: str) -> list[Asset]:
         remaining = 1
         cursor = None
         all_assets: list[Asset] = []
-        full_transfer_history: list[Transfer] = []
-
-        progress_box = self.app.query_one("#progress", Static)
-
-        loading_indicator_label = Label("Getting assets")
-        await progress_box.mount(loading_indicator_label)
-        loading_indicator = LoadingIndicator()
-        await progress_box.mount(loading_indicator)
         while remaining > 0:
             params = {'name': asset_name }
             if cursor is not None:
@@ -71,6 +63,61 @@ class Searcher:
 
             if self.test_mode and len(all_assets) >= 100:
                 break
+
+        return all_assets
+
+    async def get_asset_list_by_blueprint(self, blueprint: str) -> list[Asset]:
+        all_assets: list[Asset] = []
+
+        matching_blueprints = await Blueprint.filter(name=blueprint)
+        progress_box = self.app.query_one("#progress", Static)
+
+        progress_bar_label = Label("Getting asset details")
+        await progress_box.mount(progress_bar_label)
+        progress_bar = ProgressBar(total=len(matching_blueprints))
+        await progress_box.mount(progress_bar)
+
+        for matching_blueprint in matching_blueprints:
+            asset = await Asset.get_or_none(
+                blueprint=matching_blueprint
+            )
+            if asset is None:
+                asset_detail_response = await self.rate_limited_request(BASE_URL + f'/assets/{matching_blueprint.token_address}/{matching_blueprint.token_id}', HEADERS, None)
+                asset = await create_asset(asset_detail_response.json())
+                asset.blueprint = matching_blueprint
+                await asset.save()
+
+            all_assets.append(asset)
+            progress_bar.advance(1)
+
+        await progress_bar_label.remove()
+        await progress_bar.remove()
+
+        return all_assets
+
+
+
+    async def get_asset_data(self, asset_name: str, search_type: str, get_transfer_history: bool = True) -> tuple[list[Asset], list[Transfer]]:
+        full_transfer_history: list[Transfer] = []
+
+        progress_box = self.app.query_one("#progress", Static)
+
+        print(search_type)
+        print(type(search_type))
+        if search_type is None:
+            search_type = "blueprint"
+            print("AAAAAAAAAAAAAAAAAAAAAA")
+
+        loading_indicator_label = Label(f"Getting assets by {search_type} AAA")
+        await progress_box.mount(loading_indicator_label)
+        loading_indicator = LoadingIndicator()
+        await progress_box.mount(loading_indicator)
+
+        if search_type == "metadata":
+            all_assets = await self.get_asset_list_by_metadata(asset_name)
+        else:
+            all_assets = await self.get_asset_list_by_blueprint(asset_name)
+
         await loading_indicator_label.remove()
         await loading_indicator.remove()
 
@@ -81,7 +128,6 @@ class Searcher:
         await progress_box.mount(progress_bar_label)
         await progress_box.mount(progress_bar)
         for asset in all_assets:
-            print(asset.token_id)
             blueprint = await self.get_blueprint_of_asset(asset)
             asset.blueprint = blueprint
             if get_transfer_history:
@@ -91,6 +137,9 @@ class Searcher:
             await asset.save()
             full_transfer_history += transfer_history
             progress_bar.advance(1)
+
+            if self.test_mode:
+                break
 
         await progress_bar_label.remove()
         await progress_bar.remove()

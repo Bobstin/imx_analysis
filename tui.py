@@ -4,7 +4,7 @@ from datetime import datetime
 
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Static, Input, Select, Button, RichLog
+from textual.widgets import Header, Static, Input, Select, Button, RichLog, Checkbox
 
 from searches import Searcher
 from utils import create_dir_if_not_exist, write_list_of_tortoise_objects_to_csv
@@ -26,10 +26,23 @@ class ImxApp(App):
 
     @work(exclusive=True)
     async def asset_search(self) -> None:
-        self.searcher.send_to_log(f"Getting asset list by metadata")
-        original_asset_name = "#100 Todd McFarlane Batman"
-        asset_name = "#100_Todd_McFarlane_Batman"
-        assets, transfers = await self.searcher.get_asset_lists_by_metadata(asset_name)
+        asset_name_box = self.query_one("#asset_name", Input)
+        original_asset_name = asset_name_box.value
+        if original_asset_name == "":
+            original_asset_name = "#100 Todd McFarlane Batman"
+
+        search_type_box = self.query_one("#search_type", Select)
+        search_type = search_type_box.value
+
+        if search_type == "metadata":
+            asset_name = original_asset_name.replace(" ", "_")
+        else:
+            asset_name = original_asset_name
+
+        self.searcher.send_to_log(f"Getting asset data for {original_asset_name}")
+
+        assets, transfers = await self.searcher.get_asset_data(asset_name, search_type)
+
         self.searcher.send_to_log(f"Data collected, creating outputs")
 
         file_prefix = f'{datetime.now().strftime("%Y%m%d_%H%M")} {original_asset_name}'
@@ -50,10 +63,34 @@ class ImxApp(App):
 
 
 class Drawer(Static):
+    @on(Select.Changed, "#analysis_type")
+    async def on_analysis_type_change(self, event: Select.Changed) -> None:
+        await self.query("#asset_name").remove()
+        await self.query("#search_type").remove()
+        await self.query("#run_asset_search").remove()
+        await self.query("#user_address").remove()
+        await self.query("#transfers_out").remove()
+        await self.query("#transfers_in").remove()
+        await self.query("#mints").remove()
+
+        if event.value == "asset":
+            await self.mount(
+        Input(placeholder="Asset name", id="asset_name"),
+                Select(prompt="Search type", options=[("By blueprint", "blueprint"), ("By metadata name", "metadata")], id="search_type"),
+                Button("Run search", variant="primary", id="run_asset_search"),
+            )
+
+        if event.value == "user":
+            await self.mount(
+        Input(placeholder="User address", id="user_address"),
+                Checkbox("Get transfers out", id="transfers_out"),
+                Checkbox("Get transfers in", id="transfers_in"),
+                Checkbox("Get mints", id="mints"),
+                Button("Run search", variant="primary", id="run_user_search"),
+            )
+
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Asset name")
-        yield Select(prompt="Search type", options=[("By blueprint", "blueprint"), ("By metadata name", "metadata")])
-        yield Button("Run search", variant="primary", id="run_asset_search")
+        yield Select(prompt="Analysis type", options=[("Asset search", "asset"), ("User search", "user")], id="analysis_type")
 
 
 async def setup_db():
