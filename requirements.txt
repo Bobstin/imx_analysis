@@ -3,3 +3,5 @@ requests==2.31.0
 tqdm==4.64.1
 tortoise-orm==0.20.0
 textual==0.41.0
+httpx==0.25.1
+pydantic==2.4.2

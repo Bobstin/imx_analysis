@@ -1,0 +1,28 @@
+Screen {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 2fr;
+    grid-rows: 75% 25%;
+    background: $background-lighten-2;
+}
+
+#header {
+    column-span: 2;
+}
+
+#drawer {
+    row-span: 2;
+    border-right: solid white;
+    height: 100%;
+}
+
+#log {
+    border-bottom: solid white;
+    height: 100%;
+}
+
+#progress {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 2fr;
+}
