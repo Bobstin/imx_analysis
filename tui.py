@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from tortoise import Tortoise, run_async
 from datetime import datetime
@@ -16,9 +17,11 @@ class ImxApp(App):
     BINDINGS = [("d", "quit", "Quit")]
 
     def __init__(self, *args, **kwargs):
-        self.searcher = Searcher(self, True)
         self.output_dir = kwargs["output_dir"]
+        self.test_mode = kwargs["test_mode"]
+        self.searcher = Searcher(self, self.test_mode)
         del kwargs["output_dir"]
+        del kwargs["test_mode"]
         super().__init__(*args, **kwargs)
 
     @on(Button.Pressed, "#run_asset_search")
@@ -83,6 +86,30 @@ class ImxApp(App):
 
         self.searcher.send_to_log(f"Job complete")
 
+    @on(Button.Pressed, "#run_blueprint_prefetch")
+    async def on_blueprint_prefetch(self, event: Button.Pressed) -> None:
+        self.blueprint_prefetch()
+
+    @work(exclusive=True)
+    async def blueprint_prefetch(self) -> None:
+        self.searcher.send_to_log(f"Prefetching blueprints")
+        token_address = self.query_one("#token_address", Input).value
+
+        starting_token_id = self.query_one("#starting_token_id", Input).value
+        if starting_token_id == "":
+            starting_token_id = 1
+        else:
+            starting_token_id = int(starting_token_id)
+
+        ending_token_id = self.query_one("#ending_token_id", Input).value
+        if ending_token_id == "":
+            ending_token_id = 100
+        else:
+            ending_token_id = int(ending_token_id)
+
+        await self.searcher.blueprint_prefetch(token_address, starting_token_id, ending_token_id)
+        self.searcher.send_to_log(f"Job complete")
+
     def compose(self) -> ComposeResult:
         yield Header(id="header")
         yield Drawer(id="drawer")
@@ -106,6 +133,10 @@ class Drawer(Static):
         await self.query("#mints").remove()
         await self.query("#first_non_mint").remove()
         await self.query("#run_user_search").remove()
+        await self.query("#token_address").remove()
+        await self.query("#starting_token_id").remove()
+        await self.query("#ending_token_id").remove()
+        await self.query("#run_blueprint_prefetch").remove()
 
         if event.value == "asset":
             await self.mount(
@@ -114,18 +145,25 @@ class Drawer(Static):
                 Button("Run search", variant="primary", id="run_asset_search"),
             )
 
-        if event.value == "user":
+        elif event.value == "user":
             await self.mount(
         Input(placeholder="User address", id="user_address"),
                 Checkbox("Get transfers out", id="transfers_out", value=True),
-                Checkbox("Get transfers in", id="transfers_in"),
-                Checkbox("Get mints", id="mints"),
+                Checkbox("Get transfers in", id="transfers_in", value=True),
+                Checkbox("Get mints", id="mints", value=True),
                 Checkbox("Get get first non-mint user", id="first_non_mint", value=True),
                 Button("Run search", variant="primary", id="run_user_search"),
             )
+        elif event.value == "blueprint_prefetch":
+            await self.mount(
+                Input(placeholder="User address", id="token_address", value="0xa7aefead2f25972d80516628417ac46b3f2604af"),
+                Input(placeholder="Starting token id", id="starting_token_id"),
+                Input(placeholder="Ending token id", id="ending_token_id"),
+                Button("Run search", variant="primary", id="run_blueprint_prefetch"),
+            )
 
     def compose(self) -> ComposeResult:
-        yield Select(prompt="Analysis type", options=[("Asset search", "asset"), ("User search", "user")], id="analysis_type")
+        yield Select(prompt="Analysis type", options=[("Asset search", "asset"), ("User search", "user"), ("Blueprint prefetch", "blueprint_prefetch")], id="analysis_type")
 
 
 async def setup_db():
@@ -134,8 +172,9 @@ async def setup_db():
 
 
 if __name__ == "__main__":
+    test_mode = "--dev" in sys.argv
     output_dir = Path() / "output"
     create_dir_if_not_exist(output_dir)
     run_async(setup_db())
-    app = ImxApp(output_dir=output_dir)
+    app = ImxApp(output_dir=output_dir, test_mode=True)
     app.run()

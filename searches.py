@@ -121,9 +121,11 @@ class Searcher:
         return blueprint
 
     async def get_asset_details(self, token_address: str, token_id:str, get_first_non_mint_user: bool) -> Asset:
+        print(token_id)
         asset_id = f"{token_address}-{token_id}"
         asset = await Asset.get_or_none(id=asset_id)
         if asset is None:
+            print("HERE")
             asset_detail_response = await self.rate_limited_request(
                 BASE_URL + f'/assets/{token_address}/{token_id}', HEADERS, None)
             print(asset_detail_response.json())
@@ -292,6 +294,7 @@ class Searcher:
         if search_type == "metadata":
             all_assets = await self.get_asset_list_by_metadata(asset_name)
         else:
+            self.send_to_log("WARNING: This only searches assets in the pre-populated blueprints database! Use the blueprint prefetch option to populate it")
             all_assets = await self.get_asset_list_by_blueprint(asset_name)
 
         await loading_indicator_label.remove()
@@ -321,3 +324,17 @@ class Searcher:
         await progress_bar.remove()
 
         return all_assets, full_transfer_history
+
+    async def blueprint_prefetch(self, token_address: str, starting_token_id: int, ending_token_id: int):
+        progress_box = self.app.query_one("#progress", Static)
+        progress_bar_label = Label("Getting asset details")
+        await progress_box.mount(progress_bar_label)
+        progress_bar = ProgressBar(total=ending_token_id - starting_token_id)
+        await progress_box.mount(progress_bar)
+
+        for token_id in range(starting_token_id, ending_token_id):
+            await self.get_asset_details(token_address, str(token_id), False)
+            progress_bar.advance(1)
+
+        await progress_bar_label.remove()
+        await progress_bar.remove()
