@@ -19,7 +19,6 @@ def get_blueprint_data(blueprint):
     }
 
 
-
 class Blueprint(Model):
     blueprint = fields.TextField(pk=True)
     name = fields.TextField()
@@ -38,16 +37,17 @@ class Asset(Model):
     user = fields.TextField()
     status = fields.TextField(null=True)
     uri = fields.TextField(null=True)
-    name = fields.TextField()
+    name = fields.TextField(null=True)
     description = fields.TextField(null=True)
     image_url = fields.TextField(null=True)
-    metadata = fields.JSONField(null=True)
+    metadata = fields.JSONField()
     collection = fields.JSONField(null=True)
     created_at = fields.TextField()
     updated_at = fields.TextField()
     blueprint: fields.ForeignKeyRelation[Blueprint] = fields.ForeignKeyField("models.Blueprint", related_name="assets", null=True)
     mint_address = fields.TextField(null=True)
     first_non_mint_address = fields.TextField(null=True)
+    checked_first_non_mint_address = fields.BooleanField(null=True)
     num_transfers = fields.IntField(null=True)
 
     async def to_dict(self):
@@ -72,6 +72,7 @@ class Asset(Model):
             "blueprint_edition": blueprint_data["blueprint_edition"],
             "mint_address": self.mint_address,
             "first_non_mint_address": self.first_non_mint_address,
+            "checked_first_non_mint_address": self.checked_first_non_mint_address,
             "num_transfers": self.num_transfers,
         } | self.metadata
 

@@ -7,7 +7,8 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Static, Input, Select, Button, RichLog, Checkbox
 
 from searches import Searcher
-from utils import create_dir_if_not_exist, write_list_of_tortoise_objects_to_csv
+from utils import create_dir_if_not_exist, write_list_of_tortoise_objects_to_csv, write_list_of_dicts_to_csv, \
+    create_transfer_summaries, create_transfer_output_files
 
 
 class ImxApp(App):
@@ -41,13 +42,44 @@ class ImxApp(App):
 
         self.searcher.send_to_log(f"Getting asset data for {original_asset_name}")
 
-        assets, transfers = await self.searcher.get_asset_data(asset_name, search_type)
+        assets, transfers = await self.searcher.asset_search(asset_name, search_type)
 
         self.searcher.send_to_log(f"Data collected, creating outputs")
 
         file_prefix = f'{datetime.now().strftime("%Y%m%d_%H%M")} {original_asset_name}'
         await write_list_of_tortoise_objects_to_csv(self.output_dir / f"{file_prefix} assets.csv", assets)
         await write_list_of_tortoise_objects_to_csv(self.output_dir / f"{file_prefix} transfers.csv", transfers)
+
+        self.searcher.send_to_log(f"Job complete")
+
+    @on(Button.Pressed, "#run_user_search")
+    async def on_user_search(self, event: Button.Pressed) -> None:
+        self.user_search()
+
+    @work(exclusive=True)
+    async def user_search(self) -> None:
+        user_address = self.query_one("#user_address", Input).value
+        if user_address == "":
+            user_address = "0x7be178ba43a9828c22997a3ec3640497d88d2fd3"
+
+        get_transfers_out = self.query_one("#transfers_out", Checkbox).value
+        get_transfers_in = self.query_one("#transfers_in", Checkbox).value
+        get_mints = self.query_one("#mints", Checkbox).value
+        get_first_non_mint = self.query_one("#first_non_mint", Checkbox).value
+
+        file_prefix = f'{datetime.now().strftime("%Y%m%d_%H%M")} {user_address}'
+
+        if get_transfers_out:
+            transfer_out_history, assets_transferred_out = await self.searcher.get_transfer_history_of_user(user_address, "out", get_first_non_mint)
+            await create_transfer_output_files(transfer_out_history, assets_transferred_out, 'out', self.output_dir, file_prefix)
+
+        if get_transfers_in:
+            transfer_in_history, assets_transferred_in = await self.searcher.get_transfer_history_of_user(user_address, "in", get_first_non_mint)
+            await create_transfer_output_files(transfer_in_history, assets_transferred_in, 'in', self.output_dir, file_prefix)
+
+        if get_mints:
+            mints = await self.searcher.get_minted_assets(user_address, get_first_non_mint)
+            await write_list_of_tortoise_objects_to_csv(self.output_dir / f"{file_prefix} minted assets.csv", mints)
 
         self.searcher.send_to_log(f"Job complete")
 
@@ -72,6 +104,8 @@ class Drawer(Static):
         await self.query("#transfers_out").remove()
         await self.query("#transfers_in").remove()
         await self.query("#mints").remove()
+        await self.query("#first_non_mint").remove()
+        await self.query("#run_user_search").remove()
 
         if event.value == "asset":
             await self.mount(
@@ -83,9 +117,10 @@ class Drawer(Static):
         if event.value == "user":
             await self.mount(
         Input(placeholder="User address", id="user_address"),
-                Checkbox("Get transfers out", id="transfers_out"),
+                Checkbox("Get transfers out", id="transfers_out", value=True),
                 Checkbox("Get transfers in", id="transfers_in"),
                 Checkbox("Get mints", id="mints"),
+                Checkbox("Get get first non-mint user", id="first_non_mint", value=True),
                 Button("Run search", variant="primary", id="run_user_search"),
             )
 
