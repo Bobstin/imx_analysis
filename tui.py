@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from tortoise import Tortoise, run_async
@@ -175,9 +176,9 @@ async def setup_db():
 
 
 if __name__ == "__main__":
-    test_mode = "--dev" in sys.argv
+    test_mode = os.environ.get("IMX_TEST_MODE") == "1"
     output_dir = Path() / "output"
     create_dir_if_not_exist(output_dir)
     run_async(setup_db())
-    app = ImxApp(output_dir=output_dir, test_mode=False)
+    app = ImxApp(output_dir=output_dir, test_mode=test_mode)
     app.run()
