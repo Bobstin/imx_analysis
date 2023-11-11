@@ -176,5 +176,5 @@ if __name__ == "__main__":
     output_dir = Path() / "output"
     create_dir_if_not_exist(output_dir)
     run_async(setup_db())
-    app = ImxApp(output_dir=output_dir, test_mode=True)
+    app = ImxApp(output_dir=output_dir, test_mode=False)
     app.run()
