@@ -22,7 +22,7 @@ def write_list_of_dicts_to_csv(path, dict_list, num_to_check_for_fields=200):
 
         all_keys = all_keys.union(dict_list[i].keys())
 
-    with open(path, "w", newline="") as f:
+    with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=all_keys)
         writer.writeheader()
         writer.writerows(dict_list)
