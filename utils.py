@@ -1,6 +1,9 @@
 import csv
+from contextlib import asynccontextmanager
 from pathlib import Path
 import pandas as pd
+from textual.widgets import RichLog
+from rich.traceback import Traceback
 
 from models import Transfer, Asset
 
@@ -58,3 +61,12 @@ async def create_transfer_output_files(transfers: list[Transfer], assets: list[A
     transfer_counts_by_user, transfer_counts = await create_transfer_summaries(transfer_dicts, direction)
     transfer_counts_by_user.to_csv(output_dir / f"{file_prefix} transfer {direction} counts by user.csv")
     transfer_counts.to_csv(output_dir / f"{file_prefix} transfer {direction} counts.csv")
+
+
+@asynccontextmanager
+async def log_exceptions(app):
+    try:
+        yield
+    except Exception:
+        log = app.query_one("#log", RichLog)
+        log.write(Traceback())

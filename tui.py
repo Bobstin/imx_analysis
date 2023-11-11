@@ -9,7 +9,7 @@ from textual.widgets import Header, Static, Input, Select, Button, RichLog, Chec
 
 from searches import Searcher
 from utils import create_dir_if_not_exist, write_list_of_tortoise_objects_to_csv, write_list_of_dicts_to_csv, \
-    create_transfer_summaries, create_transfer_output_files
+    create_transfer_summaries, create_transfer_output_files, log_exceptions
 
 
 class ImxApp(App):
@@ -26,7 +26,8 @@ class ImxApp(App):
 
     @on(Button.Pressed, "#run_asset_search")
     async def on_asset_search(self, event: Button.Pressed) -> None:
-        self.asset_search()
+        async with log_exceptions(self):
+            self.asset_search()
 
     @work(exclusive=True)
     async def asset_search(self) -> None:
@@ -57,7 +58,8 @@ class ImxApp(App):
 
     @on(Button.Pressed, "#run_user_search")
     async def on_user_search(self, event: Button.Pressed) -> None:
-        self.user_search()
+        async with log_exceptions(self):
+            self.user_search()
 
     @work(exclusive=True)
     async def user_search(self) -> None:
@@ -88,7 +90,8 @@ class ImxApp(App):
 
     @on(Button.Pressed, "#run_blueprint_prefetch")
     async def on_blueprint_prefetch(self, event: Button.Pressed) -> None:
-        self.blueprint_prefetch()
+        async with log_exceptions(self):
+            self.blueprint_prefetch()
 
     @work(exclusive=True)
     async def blueprint_prefetch(self) -> None:
