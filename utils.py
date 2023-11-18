@@ -17,13 +17,11 @@ def create_dir_if_not_exist(dir_: Path) -> None:
         dir_.mkdir()
 
 
-def write_list_of_dicts_to_csv(path, dict_list, num_to_check_for_fields=200):
+def write_list_of_dicts_to_csv(path, dict_list):
     all_keys = set()
-    for i in range(num_to_check_for_fields):
-        if len(dict_list) <= i:
-            break
 
-        all_keys = all_keys.union(dict_list[i].keys())
+    for dict_ in dict_list:
+        all_keys = all_keys.union(dict_.keys())
 
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=all_keys)
