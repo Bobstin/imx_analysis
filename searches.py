@@ -120,15 +120,16 @@ class Searcher:
 
         return blueprint
 
-    async def get_asset_details(self, token_address: str, token_id:str, get_first_non_mint_user: bool) -> Asset:
+    async def get_asset_details(self, token_address: str, token_id:str, get_first_non_mint_user: bool) -> Asset | None:
         print(token_id)
         asset_id = f"{token_address}-{token_id}"
         asset = await Asset.get_or_none(id=asset_id)
         if asset is None:
-            print("HERE")
             asset_detail_response = await self.rate_limited_request(
                 BASE_URL + f'/assets/{token_address}/{token_id}', HEADERS, None)
-            print(asset_detail_response.json())
+            if asset_detail_response.status_code == 404:
+                self.send_to_log(f"Asset {token_address}-{token_id} not found")
+                return None
             asset = await create_asset(asset_detail_response.json())
             blueprint = await self.get_blueprint_of_asset(asset)
             asset.blueprint = blueprint
@@ -183,7 +184,8 @@ class Searcher:
                     )
                 )
                 transfer_history.append(transfer)
-                all_assets.append(asset)
+                if asset is not None:
+                    all_assets.append(asset)
 
                 total_transfers += 1
                 loading_indicator_label.update(f"Getting transfer history {direction} ({total_transfers} transfers so far)")
@@ -265,7 +267,9 @@ class Searcher:
                 asset_token_address = mint['token']['data']['token_address']
                 asset_token_id = mint['token']['data']['token_id']
                 asset = await self.get_asset_details(asset_token_address, asset_token_id, get_first_non_mint_user)
-                minted_assets.append(asset)
+
+                if asset is not None:
+                    minted_assets.append(asset)
 
                 total_mints += 1
                 loading_indicator_label.update(f"Getting mints ({total_mints} so far)")
